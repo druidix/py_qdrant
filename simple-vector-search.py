@@ -3,7 +3,6 @@
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient, models
 import json
-import jsonpickle
 import os
 import sys
 
