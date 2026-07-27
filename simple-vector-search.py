@@ -2,6 +2,8 @@
 
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient, models
+import json
+import jsonpickle
 import os
 import sys
 
@@ -100,7 +102,20 @@ query_vector = [0.85, 0.2, 0.1, 0.9]
 
 # 1. Basic similarity search
 basic_results = client.query_points(collection_name, query=query_vector)
-print(f"\n\nBasic search results:", basic_results)
+# print(f"\n\nBasic search results:", json.dumps(basic_results[0], indent=2))
+
+print(f"\n\nBasic Results:\n")
+
+results_data = [
+    {
+        "id": point.id,
+        "score": point.score,
+        "payload": point.payload
+    }
+    for point in basic_results.points
+]
+
+print(json.dumps(results_data, indent=2))
 
 # 2. Filtered search (only find electronics)
 filtered_results = client.query_points(
@@ -110,4 +125,16 @@ filtered_results = client.query_points(
         must=[models.FieldCondition(key="category", match=models.MatchValue(value="electronics"))]
     ),
 )
-print(f"\n\nFiltered search results:", filtered_results)
+
+print(f"\n\nFiltered Results:\n")
+
+results_data = [
+    {
+        "id": point.id,
+        "score": point.score,
+        "payload": point.payload
+    }
+    for point in filtered_results.points
+]
+
+print(json.dumps(results_data, indent=2))
