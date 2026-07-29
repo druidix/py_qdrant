@@ -2,6 +2,7 @@
 
 __version__ = "0.1.0"
 
-from .src.qdrant_init import get_qdrant_connection
+from .qdrant_init import get_qdrant_connection
+from .collection_utils import get_or_create_collection
 
-__all__ = ["get_qdrant_connection"]
+__all__ = ["get_qdrant_connection", "get_or_create_collection"]

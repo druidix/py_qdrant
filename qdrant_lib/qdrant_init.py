@@ -1,9 +1,9 @@
 """Qdrant client initialization utilities."""
 
+import os
+
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
-import os
-import sys
 
 
 def get_qdrant_connection() -> QdrantClient:
@@ -15,7 +15,7 @@ def get_qdrant_connection() -> QdrantClient:
         QDRANT_API_KEY: The API key for authentication
 
     Raises:
-        SystemExit: If required environment variables are not defined
+        EnvironmentError: If QDRANT_URL or QDRANT_API_KEY is not defined.
 
     Returns:
         QdrantClient: An authenticated connection to Qdrant
@@ -26,10 +26,8 @@ def get_qdrant_connection() -> QdrantClient:
     qdrant_api_key = os.getenv("QDRANT_API_KEY")
 
     if not qdrant_url:
-        print("Error: QDRANT_URL not defined in environment variables")
-        sys.exit(1)
+        raise EnvironmentError("QDRANT_URL not defined in environment variables")
     if not qdrant_api_key:
-        print("Error: QDRANT_API_KEY not defined in environment variables")
-        sys.exit(1)
+        raise EnvironmentError("QDRANT_API_KEY not defined in environment variables")
 
     return QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
