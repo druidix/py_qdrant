@@ -1,24 +1,10 @@
 #!/usr/bin/env python3
 
-from dotenv import load_dotenv
-from qdrant_client import QdrantClient, models
+from qdrant_client import models
+from qdrant_lib import get_qdrant_connection
 import json
-import os
-import sys
 
-load_dotenv()
-
-qdrant_url = os.getenv("QDRANT_URL")
-qdrant_api_key = os.getenv("QDRANT_API_KEY")
-
-if not qdrant_url:
-    print("Error: QDRANT_URL not defined in environment variables")
-    sys.exit(1)
-if not qdrant_api_key:
-    print("Error: QDRANT_API_KEY not defined in environment variables")
-    sys.exit(1)
-
-client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+client = get_qdrant_connection()
 
 collection_name = 'kaushik_test_collection_1'
 
