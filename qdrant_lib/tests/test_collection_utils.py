@@ -68,8 +68,10 @@ class TestCollectionUtils(unittest.TestCase):
         )
 
         info = self.client.get_collection(TEST_COLLECTION_CUSTOM_CONFIG)
-        self.assertEqual(info.config.params.vectors.size, 8)
-        self.assertEqual(info.config.params.vectors.distance, models.Distance.DOT)
+        vectors_config = info.config.params.vectors
+        assert isinstance(vectors_config, models.VectorParams)
+        self.assertEqual(vectors_config.size, 8)
+        self.assertEqual(vectors_config.distance, models.Distance.DOT)
 
         cleanup_test_collections(self.client, [TEST_COLLECTION_CUSTOM_CONFIG])
 
