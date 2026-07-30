@@ -7,7 +7,8 @@ def get_or_create_collection(
     *,
     client: QdrantClient,
     collection_name: str,
-    vectors_config: models.VectorParams | None = None,
+    vectors_config: models.VectorParams | dict[str, models.VectorParams] | None = None,
+    sparse_vectors_config: dict[str, models.SparseVectorParams] | None = None,
 ) -> models.CollectionInfo:
     """
     Return a reference to an existing collection, creating it first if needed.
@@ -16,7 +17,10 @@ def get_or_create_collection(
         client: An authenticated QdrantClient connection.
         collection_name: Name of the collection to fetch or create.
         vectors_config: Vector parameters to use if the collection must be
-            created. Defaults to a freshly constructed size=4, COSINE config.
+            created. Can be a single VectorParams or a dict of named vectors.
+            Defaults to a freshly constructed size=4, COSINE config.
+        sparse_vectors_config: Sparse vector parameters to use if the collection
+            must be created. Maps sparse vector names to SparseVectorParams.
 
     Returns:
         CollectionInfo: A reference to the (possibly newly created) collection.
@@ -30,9 +34,13 @@ def get_or_create_collection(
     )
 
     if not collection_exists:
-        client.create_collection(
-            collection_name=collection_name,
-            vectors_config=vectors_config,
-        )
+        create_kwargs = {
+            "collection_name": collection_name,
+            "vectors_config": vectors_config,
+        }
+        if sparse_vectors_config is not None:
+            create_kwargs["sparse_vectors_config"] = sparse_vectors_config
+
+        client.create_collection(**create_kwargs)
 
     return client.get_collection(collection_name)

@@ -11,7 +11,13 @@ from qdrant_lib.tests.testutils import TEST_COLLECTION_PREFIX, cleanup_test_coll
 TEST_COLLECTION_NEW = f"{TEST_COLLECTION_PREFIX}get_or_create_new"
 TEST_COLLECTION_EXISTING = f"{TEST_COLLECTION_PREFIX}get_or_create_existing"
 TEST_COLLECTION_CUSTOM_CONFIG = f"{TEST_COLLECTION_PREFIX}get_or_create_custom_config"
-ALL_TEST_COLLECTIONS = [TEST_COLLECTION_NEW, TEST_COLLECTION_EXISTING, TEST_COLLECTION_CUSTOM_CONFIG]
+TEST_COLLECTION_WITH_SPARSE = f"{TEST_COLLECTION_PREFIX}get_or_create_with_sparse"
+ALL_TEST_COLLECTIONS = [
+    TEST_COLLECTION_NEW,
+    TEST_COLLECTION_EXISTING,
+    TEST_COLLECTION_CUSTOM_CONFIG,
+    TEST_COLLECTION_WITH_SPARSE,
+]
 
 
 class TestCollectionUtils(unittest.TestCase):
@@ -74,6 +80,29 @@ class TestCollectionUtils(unittest.TestCase):
         self.assertEqual(vectors_config.distance, models.Distance.DOT)
 
         cleanup_test_collections(self.client, [TEST_COLLECTION_CUSTOM_CONFIG])
+
+    def test_respects_sparse_vectors_config(self):
+        """get_or_create_collection uses sparse_vectors_config when creating a new collection."""
+        vectors_config = {
+            "image": models.VectorParams(size=4, distance=models.Distance.DOT),
+            "text": models.VectorParams(size=5, distance=models.Distance.COSINE),
+        }
+        sparse_config = {"text-sparse": models.SparseVectorParams()}
+
+        get_or_create_collection(
+            client=self.client,
+            collection_name=TEST_COLLECTION_WITH_SPARSE,
+            vectors_config=vectors_config,
+            sparse_vectors_config=sparse_config,
+        )
+
+        info = self.client.get_collection(TEST_COLLECTION_WITH_SPARSE)
+        sparse_vectors = info.config.params.sparse_vectors
+        self.assertIsNotNone(sparse_vectors)
+        assert sparse_vectors is not None
+        self.assertIn("text-sparse", sparse_vectors)
+
+        cleanup_test_collections(self.client, [TEST_COLLECTION_WITH_SPARSE])
 
 
 if __name__ == '__main__':
