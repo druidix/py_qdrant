@@ -64,6 +64,18 @@ class TestQdrantInit(unittest.TestCase):
                 with self.assertRaises(EnvironmentError):
                     get_qdrant_connection()
 
+    def test_get_qdrant_connection_memory_instance(self):
+        """Test that get_qdrant_connection creates an in-memory instance with location=':memory:'."""
+        client = get_qdrant_connection(location=":memory:")
+        self.assertIsInstance(client, QdrantClient)
+
+    def test_memory_instance_does_not_require_env_vars(self):
+        """Test that in-memory instance can be created without environment variables."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch('qdrant_lib.qdrant_init.load_dotenv'):
+                client = get_qdrant_connection(location=":memory:")
+                self.assertIsInstance(client, QdrantClient)
+
 
 if __name__ == '__main__':
     unittest.main()
