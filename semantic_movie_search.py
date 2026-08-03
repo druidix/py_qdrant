@@ -162,5 +162,40 @@ def semantic_splitter(text):
     nodes = semantic_splitter.get_nodes_from_documents([document])  # Pass list of Document objects
     return [n.text for n in nodes]
 
+points = []
+idx = 0
+
+for doc in documents:
+    # Fixed-size
+    for chunk in fixed_size_chunks(doc["description"]):
+        points.append(models.PointStruct(
+            id=idx,
+            vector={"fixed": encoder.encode(chunk).tolist()},
+            payload={**doc, "chunk": chunk, "chunking": "fixed"}
+        ))
+        idx += 1
+
+    # Sentence
+    for chunk in sentence_splitter(doc["description"]):  # Fixed: call the function directly
+        points.append(models.PointStruct(
+            id=idx,
+            vector={"sentence": encoder.encode(chunk).tolist()},
+            payload={**doc, "chunk": chunk, "chunking": "sentence"}
+        ))
+        idx += 1
+
+    # Semantic
+    for chunk in semantic_splitter(doc["description"]):  # This is already correct
+        points.append(models.PointStruct(
+            id=idx,
+            vector={"semantic": encoder.encode(chunk).tolist()},
+            payload={**doc, "chunk": chunk, "chunking": "semantic"}
+        ))
+        idx += 1
+
+client.upload_points(collection_name=coll_name, points=points)
+print(f"Uploaded {idx} vectors.")
+
 # Delete the collection on exit so the storage operations are rerun every time.
-# client.delete_collection(collection_name)
+# print(f"Deleting collection {coll_name}")
+# client.delete_collection(coll_name)
