@@ -4,18 +4,26 @@ import os
 
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
-from qdrant_client import QdrantClient, models
+from qdrant_client import models
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core.node_parser import SentenceSplitter, SemanticSplitterNodeParser
 from llama_index.core import Document
 from transformers import AutoTokenizer
 import textwrap
 
+from qdrant_lib import get_qdrant_connection, get_or_create_collection
+
+# Used for text chunking below.
+MAX_TOKENS = 256
+
 load_dotenv()
 
 hf_token = os.getenv("HF_TOKEN")
 if hf_token:
     os.environ["HF_TOKEN"] = hf_token
+
+client = get_qdrant_connection(':memory:')
+coll_name = 'kaushik_movies'
 
 encoder = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -116,6 +124,43 @@ for doc in documents:
     print(f"{doc['name']}: {len(tokens)} tokens")
 
     # show if it exceeds
-    if len(tokens) > 256:
-        print(f"  -  Exceeds 256 token limit by {len(tokens) - 256} tokens")
+    if len(tokens) > MAX_TOKENS:
+        print(f"  -  Exceeds", MAX_TOKENS, "token limit by", len(tokens) - MAX_TOKENS, "tokens")
     print()
+    
+coll = get_or_create_collection(
+    client=client,
+    collection_name=coll_name,
+    vectors_config={
+        'fixed': models.VectorParams(size=encoder.get_embedding_dimension(), distance=models.Distance.COSINE),
+        'sentence': models.VectorParams(size=encoder.get_embedding_dimension(), distance=models.Distance.COSINE),
+        'semantic': models.VectorParams(size=encoder.get_embedding_dimension(), distance=models.Distance.COSINE),
+
+    },
+)
+
+def fixed_size_chunks(text, size=MAX_TOKENS):
+    "Splits text into fixed-size token chunks."
+    tokens = tokenizer.encode(text, add_special_tokens=False)
+    return [
+        tokenizer.decode(tokens[i:i+size], skip_special_tokens=True)
+        for i in range(0, len(tokens), size)
+    ]
+
+def sentence_splitter(text):
+    splitter = SentenceSplitter(chunk_size=MAX_TOKENS, chunk_overlap=40)
+    return splitter.split_text(text)
+
+def semantic_splitter(text):
+    document = Document(text=text)
+
+    semantic_splitter = SemanticSplitterNodeParser(
+        buffer_size=1,
+        breakpoint_percentile_threshold=95,
+        embed_model=HuggingFaceEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    )
+    nodes = semantic_splitter.get_nodes_from_documents([document])  # Pass list of Document objects
+    return [n.text for n in nodes]
+
+# Delete the collection on exit so the storage operations are rerun every time.
+# client.delete_collection(collection_name)
