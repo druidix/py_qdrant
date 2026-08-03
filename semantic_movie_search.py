@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import os
+
+from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient, models
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -7,6 +10,12 @@ from llama_index.core.node_parser import SentenceSplitter, SemanticSplitterNodeP
 from llama_index.core import Document
 from transformers import AutoTokenizer
 import textwrap
+
+load_dotenv()
+
+hf_token = os.getenv("HF_TOKEN")
+if hf_token:
+    os.environ["HF_TOKEN"] = hf_token
 
 encoder = SentenceTransformer("all-MiniLM-L6-v2")
 
