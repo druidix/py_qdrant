@@ -204,22 +204,6 @@ results = client.query_points(
     limit=3,
 )
 
-# for point in results:
-#     print(point)
-
-# Helper function for convenience
-def search_and_print(query, vector_name, k=3):
-    results = client.query_points(
-        collection_name=collection_name,
-        query=encoder.encode(query).tolist(),
-        using=vector_name,  # 'fixed', 'sentence', or 'semantic'
-        limit=k,
-    )
-
-    print(f"\nTop {k} results using '{vector_name}' chunks for query: '{query}'")
-    for point in results.points:
-        print(point.payload['name'], "| score:", point.score)
-
 # Helper function for inspection
 def search_and_inspect(query, vector_name, k=3):
     results = client.query_points(
