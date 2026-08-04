@@ -242,3 +242,45 @@ def search_and_inspect(query, vector_name, k=3):
 
 for strategy in ['fixed', 'sentence', 'semantic']:
     search_and_inspect('alien invasion', strategy)
+    
+hits = client.query_points(
+    collection_name=coll_name,
+    query=encoder.encode("alien invasion").tolist(),
+    using="semantic",  # or whatever named vector you're using
+    query_filter=models.Filter(
+        must=[
+            models.FieldCondition(
+                key="year",
+                range=models.Range(gte=2000)
+            )
+        ]
+    ),
+    limit=4,
+    with_payload=True,
+)
+
+print(f"Filtering for movies made in or after 2000:\n\n")
+for point in hits.points:
+    print(point.payload['name'], "| score:", point.score)
+    
+response = client.query_points_groups(
+    collection_name=coll_name,
+    query=encoder.encode("alien invasion").tolist(),
+    using="semantic",
+    query_filter=models.Filter(
+        must=[
+            models.FieldCondition(
+                key="year",
+                range=models.Range(gte=2000)
+            )
+        ]
+    ),
+    group_by="name",       # group results by the 'name' field
+    limit=4,               # number of unique titles to return
+    group_size=1,          # max points per group
+    with_payload=True,
+)
+
+print(f"Filtering again for movies made in or after 2000, grouped by title this time:\n\n")
+for group in response.groups:
+    print(group.id, "| score:", group.hits[0].score)
