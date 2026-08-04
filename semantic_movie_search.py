@@ -196,6 +196,49 @@ for doc in documents:
 client.upload_points(collection_name=coll_name, points=points)
 print(f"Uploaded {idx} vectors.")
 
-# Delete the collection on exit so the storage operations are rerun every time.
-# print(f"Deleting collection {coll_name}")
-# client.delete_collection(coll_name)
+# Now that we have data populated, let's do some searches.
+results = client.query_points(
+    collection_name=coll_name,
+    query=encoder.encode("alien invasion").tolist(),
+    using="fixed",  # or "sentence" or "semantic"
+    limit=3,
+)
+
+# for point in results:
+#     print(point)
+
+# Helper function for convenience
+def search_and_print(query, vector_name, k=3):
+    results = client.query_points(
+        collection_name=collection_name,
+        query=encoder.encode(query).tolist(),
+        using=vector_name,  # 'fixed', 'sentence', or 'semantic'
+        limit=k,
+    )
+
+    print(f"\nTop {k} results using '{vector_name}' chunks for query: '{query}'")
+    for point in results.points:
+        print(point.payload['name'], "| score:", point.score)
+
+# Helper function for inspection
+def search_and_inspect(query, vector_name, k=3):
+    results = client.query_points(
+        collection_name=coll_name,
+        query=encoder.encode(query).tolist(),
+        using=vector_name,
+        limit=k,
+        with_payload=True,
+    )
+
+    print(f"\nTop {k} results using '{vector_name}' chunks for query: '{query}'\n")
+    for i, point in enumerate(results.points, 1):
+        payload = point.payload
+        print(
+            f"{i}. {payload['name']} ({payload['year']})\n"
+            f"   Score: {point.score:.4f}\n"
+            f"   Chunking: {payload['chunking']}\n"
+            f"   Chunk: {payload['chunk']}\n"
+        )
+
+for strategy in ['fixed', 'sentence', 'semantic']:
+    search_and_inspect('alien invasion', strategy)
