@@ -158,3 +158,35 @@ else:
 
     client.upload_points(collection_name=coll_name, points=points)
     print(f"Uploaded {len(points)} vectors.")
+
+# Now that we have data populated, let's do some searches.
+results = client.query_points(
+    collection_name=coll_name,
+    query=encoder.encode("").tolist(),
+    using="fixed",  # or "sentence" or "semantic"
+    limit=3,
+)
+
+# Helper function for inspection
+def search_and_inspect(query, vector_name, k=3):
+    results = client.query_points(
+        collection_name=coll_name,
+        query=encoder.encode(query).tolist(),
+        using=vector_name,
+        limit=k,
+        with_payload=True,
+    )
+
+    print(f"\nTop {k} results using '{vector_name}' chunks for query: '{query}'\n")
+    for i, point in enumerate(results.points, 1):
+        payload = point.payload
+        print(
+            f"{i}. {payload['name']} ({payload['cuisine']})\n"
+            f"   Score: {point.score:.4f}\n"
+            f"   Rating: {payload['rating']:.1f}\n"
+            f"   Chunking: {payload['chunking']}\n"
+            f"   Chunk: {payload['chunk']}\n"
+        )
+
+for strategy in ['fixed', 'sentence', 'semantic']:
+    search_and_inspect('authentic szechuan cuisine', strategy)
