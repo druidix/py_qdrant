@@ -78,6 +78,20 @@ restaurant_collection = get_or_create_collection(
     },
 )
 
+client.create_payload_index(
+    collection_name=coll_name,
+    field_name="cuisine",
+    field_schema=models.PayloadSchemaType.KEYWORD,
+)
+
+client.create_payload_index(
+    collection_name=coll_name,
+    field_name="rating",
+    field_schema=models.PayloadSchemaType.FLOAT,
+)
+
+
+
 def fixed_size_chunks(text, size=MAX_TOKENS):
     "Splits text into fixed-size token chunks."
     tokens = tokenizer.encode(text, add_special_tokens=False)
@@ -168,12 +182,13 @@ results = client.query_points(
 )
 
 # Helper function for inspection
-def search_and_inspect(query, vector_name, k=3):
+def search_and_inspect(query, vector_name, k=3, query_filter=None):
     results = client.query_points(
         collection_name=coll_name,
         query=encoder.encode(query).tolist(),
         using=vector_name,
         limit=k,
+        query_filter=query_filter,
         with_payload=True,
     )
 
@@ -188,5 +203,15 @@ def search_and_inspect(query, vector_name, k=3):
             f"   Chunk: {payload['chunk']}\n"
         )
 
-for strategy in ['fixed', 'sentence', 'semantic']:
-    search_and_inspect('authentic szechuan cuisine', strategy)
+search_and_inspect(
+    query='authentic Chinese comfort food',
+    vector_name='sentence',
+    k=5,
+    query_filter=models.Filter(
+        must=[
+            models.FieldCondition(key="cuisine", match=models.MatchValue(value="Chinese")),
+            models.FieldCondition(key="rating",  range=models.Range(gte=3.5)),
+
+        ]
+    ),
+)
