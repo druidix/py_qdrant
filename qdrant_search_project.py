@@ -25,10 +25,15 @@ hf_token = os.getenv("HF_TOKEN")
 if hf_token:
     os.environ["HF_TOKEN"] = hf_token
 
-client = get_qdrant_connection()
+client = get_qdrant_connection(':memory:')
+# client = get_qdrant_connection()
 coll_name = 'kaushik_restaurants'
 
-encoder = SentenceTransformer("all-MiniLM-L6-v2")
+# Compare different models
+encoder = SentenceTransformer("all-MiniLM-L6-v2") # General-purpose
+# encoder = SentenceTransformer("all-mpnet-base-v2")  # Larger, potentially better
+# encoder = SentenceTransformer("all-MiniLM-L12-v2")   # Different size/speed tradeoff
+
 
 # Restaurant data spec:
 # 100 entries
@@ -92,6 +97,21 @@ client.create_payload_index(
 
 
 
+def build_menu_highlights(eatery):
+    """Return the 'Menu highlights: ...' text for an eatery, or '' if it has no menu items."""
+    menu_items = eatery.get("menu_items") or []
+    if not menu_items:
+        return ""
+    return f"Menu highlights: {', '.join(menu_items)}."
+
+
+def prepend_menu_text(chunk_text, menu_text):
+    """Attach menu highlights to a chunk so every chunk carries menu signal, not just the last one."""
+    if not menu_text:
+        return chunk_text
+    return f"{menu_text}\n\n{chunk_text}"
+
+
 def fixed_size_chunks(text, size=MAX_TOKENS):
     "Splits text into fixed-size token chunks."
     tokens = tokenizer.encode(text, add_special_tokens=False)
@@ -100,8 +120,8 @@ def fixed_size_chunks(text, size=MAX_TOKENS):
         for i in range(0, len(tokens), size)
     ]
 
-def sentence_splitter(text):
-    splitter = SentenceSplitter(chunk_size=MAX_TOKENS, chunk_overlap=40)
+def sentence_splitter(text, chunk_size=MAX_TOKENS):
+    splitter = SentenceSplitter(chunk_size=chunk_size, chunk_overlap=40)
     return splitter.split_text(text)
 
 def semantic_splitter(text):
@@ -133,9 +153,11 @@ if restaurant_collection.points_count:
         f"{restaurant_collection.points_count} points; skipping chunking and upload."
     )
 else:
-    # Count tokens for each description
+    # Count tokens for each description + menu highlights (incl. menu items, since that's what gets embedded)
     for eatery in restaurants:
-        tokens = tokenizer.encode(eatery["description"], add_special_tokens=False)
+        menu_text = build_menu_highlights(eatery)
+        full_text = prepend_menu_text(eatery["description"], menu_text)
+        tokens = tokenizer.encode(full_text, add_special_tokens=False)
         print(f"{eatery['name']}: {len(tokens)} tokens")
 
         # show if it exceeds
@@ -146,8 +168,15 @@ else:
     points = []
 
     for eatery in restaurants:
+        menu_text = build_menu_highlights(eatery)
+        menu_token_len = len(tokenizer.encode(menu_text, add_special_tokens=False)) if menu_text else 0
+        # Reserve room in the token budget for the prepended menu text so that
+        # menu_text + chunk never exceeds MAX_TOKENS.
+        description_chunk_size = max(MAX_TOKENS - menu_token_len, 1)
+
         # Fixed-size
-        for chunk_index, chunk in enumerate(fixed_size_chunks(eatery["description"])):
+        for chunk_index, chunk in enumerate(fixed_size_chunks(eatery["description"], size=description_chunk_size)):
+            chunk = prepend_menu_text(chunk, menu_text)
             points.append(models.PointStruct(
                 id=make_point_id(eatery["id"], "fixed", chunk_index),
                 vector={"fixed": encoder.encode(chunk).tolist()},
@@ -155,15 +184,17 @@ else:
             ))
 
         # Sentence
-        for chunk_index, chunk in enumerate(sentence_splitter(eatery["description"])):
+        for chunk_index, chunk in enumerate(sentence_splitter(eatery["description"], chunk_size=description_chunk_size)):
+            chunk = prepend_menu_text(chunk, menu_text)
             points.append(models.PointStruct(
                 id=make_point_id(eatery["id"], "sentence", chunk_index),
                 vector={"sentence": encoder.encode(chunk).tolist()},
                 payload={**eatery, "chunk": chunk, "chunking": "sentence"}
             ))
 
-        # Semantic
+        # Semantic (not token-budgeted the same way; menu text is simply prepended)
         for chunk_index, chunk in enumerate(semantic_splitter(eatery["description"])):
+            chunk = prepend_menu_text(chunk, menu_text)
             points.append(models.PointStruct(
                 id=make_point_id(eatery["id"], "semantic", chunk_index),
                 vector={"semantic": encoder.encode(chunk).tolist()},
