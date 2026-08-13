@@ -9,6 +9,7 @@ def get_or_create_collection(
     collection_name: str,
     vectors_config: models.VectorParams | dict[str, models.VectorParams] | None = None,
     sparse_vectors_config: dict[str, models.SparseVectorParams] | None = None,
+    **kwargs,
 ) -> models.CollectionInfo:
     """
     Return a reference to an existing collection, creating it first if needed.
@@ -21,6 +22,9 @@ def get_or_create_collection(
             Defaults to a freshly constructed size=4, COSINE config.
         sparse_vectors_config: Sparse vector parameters to use if the collection
             must be created. Maps sparse vector names to SparseVectorParams.
+        **kwargs: Additional keyword arguments to pass to
+            client.create_collection, such as hnsw_config, optimizers_config,
+            quantization_config, etc.
 
     Returns:
         CollectionInfo: A reference to the (possibly newly created) collection.
@@ -37,6 +41,7 @@ def get_or_create_collection(
         create_kwargs = {
             "collection_name": collection_name,
             "vectors_config": vectors_config,
+            **kwargs,
         }
         if sparse_vectors_config is not None:
             create_kwargs["sparse_vectors_config"] = sparse_vectors_config
