@@ -34,7 +34,9 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-client = get_qdrant_connection()
+# Payload index creation on a 100K-point collection can take well over the
+# client's default 5s read timeout, so use a generous timeout for this script.
+client = get_qdrant_connection(timeout=120)
 
 def upload_batch_without_indexes(start_idx, end_idx):
     points = []
