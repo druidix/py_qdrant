@@ -266,8 +266,38 @@ try:
     print(f"Found {len(response.points)} matching results")
     if response.points:
         print(f"Top result: '{response.points[0].payload['text']}'\nScore: {response.points[0].score:.4f}")
+    
     else:
         print("No results found - try a different filter term")
+    
+    print("\n" + "=" * 60)
+    print("FINAL PERFORMANCE SUMMARY")
+    print("=" * 60)
+
+    # Key metrics
+    if unindexed_filter_time > 0 and indexed_filter_time > 0:
+        index_speedup = unindexed_filter_time / indexed_filter_time
+        filter_overhead_without = unindexed_filter_time - baseline_time
+        filter_overhead_with = indexed_filter_time - baseline_time
+    else:
+        index_speedup = 0
+        filter_overhead_without = 0
+        filter_overhead_with = 0
+
+    print(f"Baseline search (HNSW m=16):     {baseline_time:.2f}ms")
+    print(f"Filtering WITHOUT index:        {unindexed_filter_time:.2f}ms")
+    print(f"Filtering WITH index:           {indexed_filter_time:.2f}ms")
+    print("")
+    print(f"Performance improvements:")
+    print(f"   • Index speedup:                {index_speedup:.1f}x faster")
+    print(f"   • Filter overhead (no index):   +{filter_overhead_without:.2f}ms")
+    print(f"   • Filter overhead (with index): +{filter_overhead_with:.2f}ms")
+    print("")
+    print(f"Key insights:")
+    print(f"   • HNSW (m=16) enables fast vector search")
+    print(f"   • Payload indexes dramatically improve filtering")
+    print(f"   • Upload strategy (m=0→m=16) optimizes ingestion")
+    print("=" * 60)
 
 finally:
     client.close()
