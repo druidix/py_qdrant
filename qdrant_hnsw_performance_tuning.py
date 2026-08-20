@@ -10,6 +10,11 @@ Options:
                 repopulated from scratch. Use this to reset the collection
                 after changing its config (e.g. hnsw_config) or to discard a
                 partial/corrupted upload.
+    --m         HNSW graph connectivity (number of bi-directional links per
+                node) to use once indexing is enabled. Must be between
+                MIN_M and MAX_M. Defaults to DEFAULT_M. If the collection
+                already exists with a different m, it is deleted and
+                rebuilt from scratch with the new value.
 """
 
 import argparse
@@ -26,13 +31,43 @@ from qdrant_lib import (
     get_qdrant_connection,
 )
 
+# Reasonable bounds for HNSW's m (graph connectivity) parameter. Qdrant
+# itself defaults to 16; values below ~4 barely form a useful graph, and
+# values above ~64 give diminishing recall gains for steeply higher memory
+# and build cost. m=0 is intentionally excluded here since this script uses
+# it internally as a separate mechanism to disable indexing during upload.
+MIN_M = 4
+MAX_M = 64
+DEFAULT_M = 16
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument(
     "--clean",
     action="store_true",
     help="Delete the collection before running, starting over from scratch.",
 )
+parser.add_argument(
+    "--m",
+    type=int,
+    default=None,
+    help=(
+        f"HNSW graph connectivity to use once indexing is enabled "
+        f"(default: {DEFAULT_M}). Must be between {MIN_M} and {MAX_M}. "
+        "If supplied and different from the existing collection's m, the "
+        "collection is cleared and rebuilt with the new value."
+    ),
+)
 args = parser.parse_args()
+
+if args.m is not None and not (MIN_M <= args.m <= MAX_M):
+    parser.error(
+        f"--m={args.m} is out of range; HNSW's m must be between "
+        f"{MIN_M} and {MAX_M} (got {args.m}). Values under {MIN_M} fail to form "
+        f"a useful graph, and values over {MAX_M} give diminishing recall "
+        f"gains for steeply higher memory/build cost."
+    )
+
+target_m = args.m if args.m is not None else DEFAULT_M
 
 # Payload index creation on a 100K-point collection can take well over the
 # client's default 5s read timeout, so use a generous timeout for this script.
@@ -83,7 +118,21 @@ try:
     ds = load_dataset("Qdrant/dbpedia-entities-openai3-text-embedding-3-large-1536-100K")
     collection_name = "dbpedia_100K"
 
-    if args.clean:
+    clean = args.clean
+    if not clean and args.m is not None and client.collection_exists(collection_name):
+        existing_m = client.get_collection(collection_name).config.hnsw_config.m
+        # existing_m may still be 0 if a prior run was interrupted before the
+        # HNSW graph was enabled; in that case there's no built index of the
+        # old m to invalidate, so no rebuild is needed on that basis alone.
+        if existing_m not in (0, target_m):
+            print(
+                f"Collection {collection_name} has m={existing_m}, "
+                f"which differs from requested --m={target_m}; "
+                "clearing and rebuilding\n"
+            )
+            clean = True
+
+    if clean:
         deleted = client.delete_collection(collection_name=collection_name)
         if deleted:
             print(f"Deleted existing collection {collection_name}\n")
@@ -206,19 +255,19 @@ try:
     collection_info = client.get_collection(collection_name)
     current_m = collection_info.config.hnsw_config.m
 
-    if current_m == 16:
-        print("\nHNSW m already set to 16; skipping reindex\n")
+    if current_m == target_m:
+        print(f"\nHNSW m already set to {target_m}; skipping reindex\n")
     else:
         client.update_collection(
             collection_name=collection_name,
             hnsw_config=models.HnswConfigDiff(
-                m=16,  # Updated from 0 to 16
+                m=target_m,  # Updated from 0 to target_m
             )
         )
-        print("\nHNSW indexing enabled with m=16\n")
+        print(f"\nHNSW indexing enabled with m={target_m}\n")
 
     ### BASELINE UNFILTERED SEARCH ###
-    # Runs after the HNSW graph (m=16) is built, so this measures HNSW
+    # Runs after the HNSW graph (m=target_m) is built, so this measures HNSW
     # search rather than the flat/brute-force scan used while m=0.
     print("\nRunning baseline performance test...\n")
 
@@ -294,9 +343,9 @@ try:
     print(f"   • Filter overhead (with index): +{filter_overhead_with:.2f}ms")
     print("")
     print(f"Key insights:")
-    print(f"   • HNSW (m=16) enables fast vector search")
+    print(f"   • HNSW (m={target_m}) enables fast vector search")
     print(f"   • Payload indexes dramatically improve filtering")
-    print(f"   • Upload strategy (m=0→m=16) optimizes ingestion")
+    print(f"   • Upload strategy (m=0→m={target_m}) optimizes ingestion")
     print("=" * 60)
 
 finally:
