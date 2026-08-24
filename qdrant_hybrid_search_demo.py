@@ -65,3 +65,27 @@ client.upsert(
         for i, doc in enumerate(documents)
     ]
 )
+
+def dense_search(query: str) -> list[models.ScoredPoint]:
+    response = client.query_points(
+        collection_name=collection_name_hybrid,
+        query=models.Document(
+            text=query,
+            model="sentence-transformers/all-MiniLM-L6-v2",
+        ),
+        using="dense",
+        limit=3,
+    )
+    return response.points
+
+def sparse_search(query: str) -> list[models.ScoredPoint]:
+    response = client.query_points(
+        collection_name=collection_name_hybrid,
+        query=models.Document(
+            text=query,
+            model="Qdrant/bm25",
+        ),
+        using="sparse",
+        limit=3,
+    )
+    return response.points
