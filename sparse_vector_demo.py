@@ -2,10 +2,8 @@
 
 from qdrant_client import models
 
-from qdrant_lib import (
-    get_or_create_collection,
-    get_qdrant_connection,
-)
+from qdrant_lib import get_or_create_collection, get_qdrant_connection
+
 
 client = get_qdrant_connection()
 
@@ -14,6 +12,7 @@ collection_name_standard = "sparse_vectors_collection"
 
 # Create the collection with sparse vectors
 get_or_create_collection(
+    client=client,
     collection_name=collection_name_standard,
     sparse_vectors_config={ #vector named "sparse_vector"
         "sparse_vector": models.SparseVectorParams(),
@@ -23,6 +22,7 @@ get_or_create_collection(
 collection_name_custom_index = "sparse_vectors_collection_custom_index"
 
 get_or_create_collection(
+    client=client,
     collection_name=collection_name_custom_index,
     sparse_vectors_config={
         "sparse_vector": models.SparseVectorParams(
@@ -61,4 +61,17 @@ client.upsert(
             },
         ),
     ],
+)
+
+print(
+    client.query_points(
+    collection_name=collection_name_standard,
+    using="sparse_vector",  # we need to specify the name of our sparse vectors to search against them
+    limit=1,                # return the top 1 most similar result
+    query=models.SparseVector(
+        indices=[1, 3],
+        values=[1, 1]
+    ),
+    with_vectors=True # to see the top 1 most similar vector
+    )
 )
