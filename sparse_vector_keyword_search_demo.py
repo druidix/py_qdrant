@@ -51,3 +51,16 @@ client.upsert(
         ) for i, description in enumerate(grocery_items_descriptions)
     ],
 )
+
+print(
+        client.query_points(
+        collection_name="bm25_vectors_collection",
+        using="bm25_sparse_vector",
+        limit=3,
+        query=models.Document(  #to run FastEmbed under the hood
+            text="cheese",
+            model="Qdrant/bm25"
+        ),
+        with_vectors=True,
+    )
+)
