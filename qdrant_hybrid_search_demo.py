@@ -18,6 +18,7 @@ collection_name_hybrid = "hybrid_search_demo"
 
 # Create our collection with both sparse (bm25) and dense vectors
 get_or_create_collection(
+    client=client,
     collection_name=collection_name_hybrid,
     vectors_config={
         "dense": models.VectorParams(
