@@ -89,3 +89,94 @@ def sparse_search(query: str) -> list[models.ScoredPoint]:
         limit=3,
     )
     return response.points
+
+queries = [
+    "nutty aged cheese",
+    "soft French cheese",
+    "pizza ingredients",
+    "a good lunch",
+]
+
+for query in queries:
+    print("Query:", query)
+
+    dense_results = dense_search(query)
+    print("Dense Results:")
+    for result in dense_results:
+        print("\t-", result.payload["text"], result.score)
+
+    sparse_results = sparse_search(query)
+    print("Sparse Results:")
+    for result in sparse_results:
+        print("\t-", result.payload["text"], result.score)
+    print()
+    
+    def rrf_search(query: str) -> list[models.ScoredPoint]:
+        response = client.query_points(
+            collection_name=collection_name_hybrid,
+            prefetch=[
+                models.Prefetch(
+                    query=models.Document(
+                        text=query,
+                        model="Qdrant/bm25",
+                    ),
+                    using="sparse",
+                    limit=3,
+                ),
+                models.Prefetch(
+                    query=models.Document(
+                        text=query,
+                        model="sentence-transformers/all-MiniLM-L6-v2",
+                    ),
+                    using="dense",
+                    limit=3,
+                )
+            ],
+            query=models.FusionQuery(fusion=models.Fusion.RRF),
+            limit=3,
+        )
+        return response.points
+
+for query in queries:
+    print("Query:", query)
+
+    rrf_results = rrf_search(query)
+    print("RRF Results:")
+    for result in rrf_results:
+        print("\t-", result.payload["text"], result.score)
+    print()
+    
+def dbsf_search(query: str) -> list[models.ScoredPoint]:
+    response = client.query_points(
+        collection_name=collection_name_hybrid,
+        prefetch=[
+            models.Prefetch(
+                query=models.Document(
+                    text=query,
+                    model="Qdrant/bm25",
+                ),
+                using="sparse",
+                limit=3,
+            ),
+            models.Prefetch(
+                query=models.Document(
+                    text=query,
+                    model="sentence-transformers/all-MiniLM-L6-v2",
+                ),
+                using="dense",
+                limit=3,
+            )
+        ],
+        query=models.FusionQuery(fusion=models.Fusion.DBSF),
+        limit=3,
+    )
+    return response.points
+
+for query in queries:
+    print("Query:", query)
+
+    dbsf_results = dbsf_search(query)
+    print("DBSF Results:")
+    for result in dbsf_results:
+        print("\t-", result.payload["text"], result.score)
+    print()
