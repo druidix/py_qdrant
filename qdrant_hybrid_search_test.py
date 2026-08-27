@@ -14,7 +14,7 @@ client = get_qdrant_connection()
 collection_name = "day3_hybrid_search"
 
 # Create hybrid collection
-client.create_collection(
+collection = get_or_create_collection(
     collection_name=collection_name,
     vectors_config={
         "dense": models.VectorParams(size=384, distance=models.Distance.COSINE)
